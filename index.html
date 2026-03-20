@@ -10,25 +10,192 @@
       padding: 0;
       height: 100%;
       width: 100%;
-      background: #000;
       overflow: hidden;
+      background: url('bg.gif') repeat;
     }
-    img {
+
+    .center-wrap {
       position: fixed;
       top: 50%;
       left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    #countdown {
+      margin-bottom: 9px;
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      line-height: 1.2;
+      text-align: center;
+      white-space: nowrap;
+      text-shadow: 0 0 2px rgba(0,0,0,0.8);
+      font-family:
+        system-ui,
+        -apple-system,
+        "Segoe UI",
+        Roboto,
+        "Helvetica Neue",
+        Arial,
+        sans-serif;
+    }
+
+    img {
       max-width: 100%;
       max-height: 100%;
       width: auto;
       height: auto;
-      transform: translate(-50%, -50%);
       object-fit: contain;
       display: block;
     }
-    
+
+    #audio-hint {
+      margin-top: 2px;
+      color: pink;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      font-family:
+        system-ui,
+        -apple-system,
+        "Segoe UI",
+        Roboto,
+        "Helvetica Neue",
+        Arial,
+        sans-serif;
+      user-select: none;
+    }
+
+    #trail {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 3;
+    }
   </style>
 </head>
 <body>
-  <img src="image.jpg">
+  <div class="center-wrap">
+    <div id="countdown">0d 0h 0m 0s</div>
+    <img src="image.jpg" alt="Centered image">
+    <div id="audio-hint">click for sound</div>
+  </div>
+
+  <canvas id="trail"></canvas>
+
+  <audio id="bg-music" autoplay loop muted>
+    <source src="song.mp3" type="audio/mpeg">
+  </audio>
+
+  <script>
+    // COUNTDOWN
+    const countdownEl = document.getElementById("countdown");
+
+    function getNextMarch15Target() {
+      const now = new Date();
+      const year = now.getFullYear();
+
+      const march15 = new Date(year, 2, 15);
+      const march16 = new Date(year, 2, 16);
+
+      if (now >= march15 && now < march16) return null;
+      if (now < march15) return march15;
+
+      return new Date(year + 1, 2, 15);
+    }
+
+    function updateCountdown() {
+      const target = getNextMarch15Target();
+
+      if (!target) {
+        countdownEl.textContent = "0d 0h 0m 0s";
+        return;
+      }
+
+      const now = new Date();
+      const diff = target - now;
+
+      const s = Math.floor(diff / 1000);
+      const d = Math.floor(s / 86400);
+      const h = Math.floor((s % 86400) / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const sec = s % 60;
+
+      countdownEl.textContent = `${d}d ${h}h ${m}m ${sec}s`;
+    }
+
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+
+    // MOUSE TRAIL
+    const canvas = document.getElementById("trail");
+    const ctx = canvas.getContext("2d");
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    resizeCanvas();
+
+    let points = [];
+
+    window.addEventListener("mousemove", (e) => {
+      points.push({ x: e.clientX, y: e.clientY, life: 1 });
+    });
+
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (let p of points) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,255,255,${p.life})`;
+        ctx.fill();
+        p.life -= 0.02;
+      }
+
+      points = points.filter(p => p.life > 0);
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+    window.addEventListener("resize", resizeCanvas);
+
+    // AUDIO
+    const music = document.getElementById("bg-music");
+    const hint = document.getElementById("audio-hint");
+
+    music.volume = 0;
+    music.play().catch(() => {});
+
+    function enableAudio() {
+      music.muted = false;
+      music.play().catch(() => {});
+
+      let vol = 0;
+      const fade = setInterval(() => {
+        vol += 0.05;
+        if (vol >= 1) {
+          vol = 1;
+          clearInterval(fade);
+        }
+        music.volume = vol;
+      }, 120);
+
+      if (hint) hint.style.display = "none";
+    }
+
+    document.addEventListener("click", enableAudio, { once: true });
+    document.addEventListener("keydown", enableAudio, { once: true });
+  </script>
 </body>
 </html>
