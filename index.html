@@ -56,11 +56,12 @@
     }
 
     #audio-hint {
-      margin-top: 2px;
-      color: pink;
+      margin-top: 6px;
+      color: white;
       font-size: 11px;
-      font-weight: 800;
+      font-weight: 600;
       letter-spacing: 1.5px;
+      text-shadow: 0 0 2px rgba(0,0,0,0.8);
       font-family:
         system-ui,
         -apple-system,
@@ -69,6 +70,7 @@
         "Helvetica Neue",
         Arial,
         sans-serif;
+      opacity: 0.6;
       user-select: none;
     }
 
@@ -123,7 +125,7 @@
       const now = new Date();
       const diff = target - now;
 
-      const s = Math.floor(diff / 1000);
+      const s = Math.max(0, Math.floor(diff / 1000));
       const d = Math.floor(s / 86400);
       const h = Math.floor((s % 86400) / 3600);
       const m = Math.floor((s % 3600) / 60);
@@ -135,7 +137,7 @@
     updateCountdown();
     setInterval(updateCountdown, 1000);
 
-    // MOUSE TRAIL
+    // TRAIL / MOBILE RIPPLE
     const canvas = document.getElementById("trail");
     const ctx = canvas.getContext("2d");
 
@@ -145,30 +147,81 @@
     }
 
     resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    const isTouchDevice =
+      window.matchMedia("(pointer: coarse)").matches ||
+      "ontouchstart" in window ||
+      navigator.maxTouchPoints > 0;
 
     let points = [];
+    let ripples = [];
 
-    window.addEventListener("mousemove", (e) => {
-      points.push({ x: e.clientX, y: e.clientY, life: 1 });
-    });
+    // Desktop mouse trail only
+    if (!isTouchDevice) {
+      window.addEventListener("mousemove", (e) => {
+        points.push({
+          x: e.clientX,
+          y: e.clientY,
+          life: 1
+        });
+      });
+    }
+
+    // Mobile tap ripple only
+    if (isTouchDevice) {
+      window.addEventListener("touchstart", (e) => {
+        const touch = e.touches[0];
+        if (!touch) return;
+
+        ripples.push({
+          x: touch.clientX,
+          y: touch.clientY,
+          radius: 10,
+          maxRadius: 120,
+          alpha: 0.7,
+          lineWidth: 2
+        });
+      }, { passive: true });
+    }
 
     function animate() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      for (let p of points) {
+      // Desktop trail dots
+      for (let i = 0; i < points.length; i++) {
+        const p = points[i];
+
         ctx.beginPath();
         ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(255,255,255,${p.life})`;
         ctx.fill();
+
         p.life -= 0.02;
       }
 
       points = points.filter(p => p.life > 0);
+
+      // Mobile ripple rings
+      for (let i = 0; i < ripples.length; i++) {
+        const r = ripples[i];
+
+        ctx.beginPath();
+        ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255,255,255,${r.alpha})`;
+        ctx.lineWidth = r.lineWidth;
+        ctx.stroke();
+
+        r.radius += 3.5;
+        r.alpha -= 0.03;
+      }
+
+      ripples = ripples.filter(r => r.alpha > 0 && r.radius < r.maxRadius);
+
       requestAnimationFrame(animate);
     }
 
     animate();
-    window.addEventListener("resize", resizeCanvas);
 
     // AUDIO
     const music = document.getElementById("bg-music");
